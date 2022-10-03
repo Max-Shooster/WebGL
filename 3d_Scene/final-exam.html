@@ -1,0 +1,270 @@
+<html>
+<head>
+    <title>CSCI-510: Final Project - Image</title>
+    
+    <!-- include vertex shaders -->
+
+    <script id="wireframe-V" type="x-shader/x-vertex">
+        #version 300 es
+        in vec4 aVertexPosition;
+
+        in vec3 bary;
+        out vec3 vbc;
+
+        // Model transforms
+        uniform mat4 modelT;
+        
+        // view transform
+        uniform mat4 viewT;
+        
+        // projection tramsform
+        uniform mat4 projT;
+        
+        void main()
+        {
+            gl_Position = projT * viewT * modelT * aVertexPosition;
+            vbc = bary;
+        }
+    </script>
+
+    
+    <script id="sphereMap-V"  type="x-shader/x-vertex">
+      #version 300 es
+      precision mediump float;
+      // Vertex shader for phong illumination model
+      // Per vertex shading
+  
+      // Vertex Attributes
+      in vec3 aVertexPosition; // in model coords
+      in vec2 aUV;    // u-v coordinates         
+  
+      // outputs
+      out vec2 theUV;  // pass uv's onto the fragment shader
+      
+      // for object rotation
+      uniform vec3 theta;                          
+
+      // Model transforms
+      uniform mat4 modelT;                          
+      
+      // view transform
+      uniform mat4 viewT;                          
+      
+      // projection tramsform 
+      uniform mat4 projT;                       
+
+      in vec3 bary;         
+      out vec3 vbc;
+
+      // outputs
+      out vec3 N;
+      out vec3 L;
+      out vec3 V;
+
+      in vec3 aNormal;    // in model coords
+      
+      // Light parameters
+      uniform vec3 ambientLight;
+      uniform vec3 lightPosition;   // in world coords
+      uniform vec3 lightColor;
+  
+      // object color parameters
+      uniform vec3 baseColor;
+      uniform vec3 specHighlightColor;
+  
+      // Phong parameters
+      uniform float ka;
+      uniform float kd;
+      uniform float ks;
+      uniform float ke;
+        
+      void main()
+      {
+          // Compute the sines and cosines of each rotation
+          // about each axis
+          vec3 angles = radians( theta );
+          vec3 c = cos( angles );
+          vec3 s = sin( angles );
+  
+          // rotation matrices
+          mat4 rx = mat4 ( 1.0,  0.0,  0.0,  0.0,
+                           0.0,  c.x,  s.x,  0.0,
+                           0.0, -s.x,  c.x,  0.0,
+                           0.0,  0.0,  0.0,  1.0 );
+  
+          mat4 ry = mat4 ( c.y,  0.0, -s.y,  0.0,
+                           0.0,  1.0,  0.0,  0.0,
+                           s.y,  0.0,  c.y,  0.0,
+                           0.0,  0.0,  0.0,  1.0 );
+  
+           mat4 rz = mat4 ( c.z,  s.z,  0.0,  0.0,
+                           -s.z,  c.z,  0.0,  0.0,
+                           0.0,  0.0,  1.0,  0.0,
+                           0.0,  0.0,  0.0,  1.0 );
+                           
+          // pass uvs to fragment shader
+          theUV = aUV;
+
+          // All calculations will be done in camera space
+          mat4 modelView = viewT * modelT;
+          mat4 normalmatrix = transpose(inverse (modelView));
+          
+          vec3 vcam = (modelView * vec4(aVertexPosition, 1.0)).xyz;
+          vec3 lcam = (viewT * vec4(lightPosition, 1.0)).xyz;
+          vec3 ncam = (normalmatrix * vec4(aNormal, 1.0)).xyz;
+          ncam = faceforward (ncam, vcam, ncam);
+          
+          // vectors to pass on to Fragment Shader
+          N = normalize (ncam);
+          L = normalize (lcam - vcam);
+          V = -normalize (vcam);
+      
+  
+          // transform vertex to clip space
+          gl_Position = rz * ry * rx * vec4 (aVertexPosition.x, aVertexPosition.y, aVertexPosition.z, 1.0) ;
+          gl_Position = projT * viewT * modelT * gl_Position;
+          vbc = bary;
+          
+      }
+  
+      </script>
+
+
+     <!-- wireframe fragment Shaders -->
+     <script id="wireframe-F" type="x-shader/x-fragment">
+         #version 300 es
+         precision mediump float;
+         
+         // Color that is the result of this shader
+         out vec4 fragColor;
+
+         void main(void) {
+             fragColor = vec4 (1.0, 1.0, 1.0, 1.0 );
+         }
+
+     </script>
+
+     <script id="sphereMap-F" type="x-shader/x-fragment">
+      #version 300 es
+
+      // Fragment shader for phong illumination model
+      // Per vertex shading
+
+      precision lowp float;
+          
+      // uvs passed in from vertex shader
+      in vec2 theUV;
+      
+      // the texture to use
+      uniform sampler2D thePlanetTexture;
+
+      //ADDITIONAL TEXTURE TO BE APPLIED
+      //uniform sampler2D theRockTexture;
+      //uniform sampler2D theCloudTreeTexture;
+      
+      //
+      uniform int switchTexture;
+      uniform float tilingFactor;
+
+      // Color that is the result of this shader
+      out vec4 fragColor;
+
+      // calculated by vertex shader and passsed to fragment
+      in vec3 N;
+      in vec3 L;
+      in vec3 V;
+      // Light parameters
+      uniform vec3 ambientLight;
+      uniform vec3 lightColor;
+      // object color parameters
+      uniform vec3 baseColor;
+      uniform vec3 specHighlightColor;
+      // Phong parameters
+      uniform float ka;
+      uniform float kd;
+      uniform float ks;
+      uniform float ke;
+
+      void main(void) {
+        vec3 R = normalize (reflect (-L, N));
+        vec3 ambient = ka * ambientLight * baseColor;
+        vec3 diffuse = kd * lightColor * baseColor * max (dot(L, N), 0.0);
+        vec3 spec = ks * specHighlightColor * lightColor * pow (max(dot(R, V), 0.0), ke);
+
+       fragColor = texture (thePlanetTexture, theUV);
+       fragColor = (vec4(diffuse, 1.0) + vec4(ambient, 1.0)) * fragColor + vec4(spec, 1.0);
+      }
+
+ </script>
+     
+     <!-- Matrix library and code for standard transformations -->
+     <script type="text/javascript" src="gl-matrix-min.js"></script>
+
+         <!-- keyboard functions -->
+    <script type="text/javascript" src="./event.js"></script>
+    
+    <!-- include the main final functions -->
+    <script type="text/javascript" src="./finalMain.js"></script>
+    
+    <!-- shape functions -->
+    <script type="text/javascript" src="./cgIShape.js"></script>
+    <script type="text/javascript" src="./myShapes-min.js"></script>
+    <script type="text/javascript" src="./planet.js"></script>
+    <script type="text/javascript" src="./cloudTree.js"></script>
+    <script type="text/javascript" src="./rocks.js"></script>
+    
+    <!-- texture images -->
+    <img id="planet-texture" src="PlanetTexture.png" style="display: none;"> </img>
+    <img id="rocks-texture" src="RocksTexture.png" style="display: none;"> </img>
+    <img id="cloudtree-texture" src="CloudTreeTexture.png" style="display: none;"> </img>
+
+    
+  <script type="text/javascript">
+    // Call init once the webpage has loaded
+    window.onload = init;
+  </script>
+</head>
+
+<body>
+  <h1>CSCI-510: Final Exam Image</h1>
+  <table>
+      <tr>
+          <td><canvas id="webgl-canvas" width="500" height="500">
+            Your browser does not support the HTML5 canvas element.
+          </canvas></td>
+
+          
+          <td>
+              <h3>Controls</h3>
+              
+              <table border="1">
+              <tbody>
+              <tr>
+                <td>x, y, z</td>
+                <td>Rotate planet forward about the x, y, or z axis</td>
+                </tr>
+                <tr>
+                <td>X, Y, Z</td>
+                <td>Rotate planet backward about the x, y, or z axis</td>
+                </tr>
+                <tr>
+                <td>1, 2, 3</td>
+                <td>Select the texture</td>
+                </tr>
+                <tr>
+                <td>r, R</td>
+                <td>Reset to default position</td>
+                </tr>
+                <tr>
+              </tbody>
+              </table>
+              
+          </td>
+      </tr>
+  </table>
+  
+  
+
+</body>
+</html>
+
