@@ -1,0 +1,274 @@
+<html>
+<head>
+    <title>CSCI-510: Assn 6 - Materials and Shading</title>
+
+    <!-- vertex Shader -->
+    <script id="sphereMap-V"  type="x-shader/x-vertex">
+    #version 300 es
+    precision mediump float;
+    // Vertex shader for phong illumination model
+    // Per vertex shading
+
+    // Vertex Attributes
+    in vec3 aVertexPosition; // in model coords
+    in vec2 aUV;    // u-v coordinates
+
+    // outputs
+    out vec2 theUV;  // pass uv's onto the fragment shader
+
+    // for object rotation
+    uniform vec3 theta;
+
+
+    void main()
+    {
+        // Compute the sines and cosines of each rotation
+        // about each axis
+        vec3 angles = radians( theta );
+        vec3 c = cos( angles );
+        vec3 s = sin( angles );
+
+        // rotation matrices
+        mat4 rx = mat4 ( 1.0,  0.0,  0.0,  0.0,
+                         0.0,  c.x,  s.x,  0.0,
+                         0.0, -s.x,  c.x,  0.0,
+                         0.0,  0.0,  0.0,  1.0 );
+
+        mat4 ry = mat4 ( c.y,  0.0, -s.y,  0.0,
+                         0.0,  1.0,  0.0,  0.0,
+                         s.y,  0.0,  c.y,  0.0,
+                         0.0,  0.0,  0.0,  1.0 );
+
+         mat4 rz = mat4 ( c.z,  s.z,  0.0,  0.0,
+                         -s.z,  c.z,  0.0,  0.0,
+                         0.0,  0.0,  1.0,  0.0,
+                         0.0,  0.0,  0.0,  1.0 );
+
+        // pass uvs to fragment shader
+        theUV = aUV;
+
+        // transform vertex to clip space
+        gl_Position = rz * ry * rx * vec4 (aVertexPosition, 1.0);
+    }
+
+    </script>
+
+
+     <!-- fragment Shader -->
+     <script id="sphereMap-F" type="x-shader/x-fragment">
+         #version 300 es
+
+         // Fragment shader for phong illumination model
+         // Per vertex shading
+
+         precision lowp float;
+
+         // uvs passed in from vertex shader
+         in vec2 theUV;
+
+         // earth texture
+         uniform sampler2D earthTexture;
+
+         // brick texture
+         uniform sampler2D brickTexture;
+         //
+         uniform int switchTexture;
+         uniform float tilingFactor;
+
+         // Color that is the result of this shader
+         out vec4 fragColor;
+
+         void main(void) {
+           if (switchTexture == 1){
+            fragColor = texture (earthTexture, theUV);
+           }
+           else if (switchTexture == 2){
+            fragColor = texture (brickTexture, theUV);
+           }
+           else if (switchTexture == 3) {
+            fragColor = texture (brickTexture, mod(theUV * tilingFactor, 1.0));
+          }
+         }
+
+    </script>
+
+     <!-- Matrix library and code for standard transformations -->
+     <script type="text/javascript" src="gl-matrix-min.js"></script>
+
+     <!-- include the shape creation functions -->
+    <script type="text/javascript" src="./cgIShape.js"></script>
+
+    <!-- definition of standard shapes -->
+    <script type="text/javascript" src="./myShapes-min.js"></script>
+
+    <!-- include the main tesselation functions -->
+    <script type="text/javascript" src="./textureMain.js"></script>
+
+    <!-- texture images -->
+    <img id="world-texture" src="1_earth_16k.jpg" style="display: none;"> </img>
+    <img id="brick-texture" src="brick.jpg" style="display: none;"> </img>
+
+
+    <!-- keyboard functions -->
+    <script type="text/javascript">
+      function gotKey (event) {
+
+      var key = event.key;
+
+      //  change object type
+      if (key == 'c') {
+          nowShowing = 'Cube';
+          angles = cube_angles;
+      }
+      if (key == 's') {
+          nowShowing = 'Sphere';
+          angles = sphere_angles;
+      }
+
+      // change texture
+      if (key == '1') curTexture = 'globe';
+      if (key == '2') curTexture = 'myimage';
+      if (key == '3') curTexture = 'proc';
+
+      // Tiling texture capability
+      if (key == '+') tilingFactor += 0.1;
+      if (key == '-') tilingFactor -= 0.1;
+
+      //  incremental rotation
+      if (key == 'x') angles[0] -= angleInc;
+      if (key == 'y') angles[1] -= angleInc;
+      if (key == 'z') angles[2] -= angleInc;
+      if (key == 'X') angles[0] += angleInc;
+      if (key == 'Y') angles[1] += angleInc;
+      if (key == 'Z') angles[2] += angleInc;
+
+      draw();
+    }
+    </script>
+
+  <script type="text/javascript">
+    // Call init once the webpage has loaded
+    window.onload = init;
+  </script>
+
+  <style>
+    /* Box container styling */
+    .box-container {
+      width: 300px;
+      position: absolute;
+      right: 50px;
+      top: 120px;
+      font-family: avenir next ;
+      font-size: 16px;
+      color: #333333;
+      background-color: #C0EEE4;
+      border-radius: 10px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+      padding: 20px;
+    }
+    /* Box title styling */
+    .box-title {
+      font-size: 20px;
+      font-weight: bold;
+      margin: 0 0 20px;
+      text-align: center;
+    }
+
+    /* Table styling */
+    .table {
+      border-collapse: collapse;
+      width: 100%;
+    }
+
+    .table th,
+    .table td {
+      border: 2px solid #000000;
+      padding: 10px;
+    }
+    .table th{
+      border: 2px solid #000000;
+      padding: 10px;
+    }
+
+    .table th {
+      background-color: #FFCAC8;
+      font-weight: bold;
+      text-align: center;
+    }
+
+    .table td {
+      text-align: center;
+    }
+
+    .table tr:nth-child(even) {
+      background-color: #ADD8E6;
+    }
+    .table tr:nth-child(odd) {
+      background-color: #ADD8E6;
+    }
+
+    .title {
+      font-family: 'Avenir Next', sans-serif;
+      font-size: 32px;
+      font-weight: bold;
+      padding-bottom: 20px;
+    }
+
+  </style>
+
+
+</head>
+
+<body>
+
+<div class="title">Procedural Tiling Texture Generator</div>
+
+<canvas id="webgl-canvas" width="500" height="500">
+  Your browser does not support the HTML5 canvas element.
+</canvas>
+  <div class="box-container">
+     <div class="box-title">Controls</div>
+     <table class="table">
+       <thead>
+         <tr>
+           <th>Button</th>
+           <th>Action</th>
+         </tr>
+       </thead>
+
+       <tbody>
+
+         <tr>
+           <td>x, y, z</td>
+           <td>Rotate forward</td>
+
+         </tr>
+         <tr>
+           <td>X, Y, Z</td>
+           <td>Rotate backward</td>
+         </tr>
+         <tr>
+           <td>c</td>
+           <td>Select cube </td>
+         </tr>
+         <tr>
+           <td>s</td>
+           <td>Select sphere</td>
+         </tr>
+         <tr>
+           <td>1, 2, 3</td>
+           <td>Select texture</td>
+         </tr>
+         <tr>
+           <td>+, -</td>
+           <td>Increase/Decrease Tiling Factor</td>
+         </tr>
+       </tbody>
+
+     </table>
+   </div>
+
+
+
+</body>
+</html>
